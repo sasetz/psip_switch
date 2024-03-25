@@ -28,7 +28,13 @@ struct Statistic
 
 enum class Protocol
 {
-    // TODO: add all protocols from the specification
+    EthernetII,
+    ARP,
+    IP,
+    TCP,
+    UDP,
+    ICMP,
+    HTTP
 };
 using StatisticsTable = map<Protocol, Statistic>;
 
@@ -39,6 +45,7 @@ using StatisticsTable = map<Protocol, Statistic>;
 struct timeout
 {
     timeout();
+    timeout(milliseconds duration);
     time_point<steady_clock> start;
     milliseconds duration;
 
@@ -65,11 +72,14 @@ public:
 
 struct MacEntry
 {
+    MacEntry &operator=(const MacEntry &) = default;
+    MacEntry &operator=(MacEntry &&) = default;
+
     interface interface;
     timeout expiration;
 };
 
-using MacTable = map<mac_address, interface>;
+using MacTable = map<mac_address, MacEntry>;
 
 // ============================================================================
 // = Device Info ==============================================================
@@ -143,9 +153,12 @@ struct SharedStorage
     vector<Session> sessions;
     DeviceInfo deviceInfo;
     ThreadControl interfaceThread1, interfaceThread2, restThread;
+    InterfaceStatus interfaceStatus1, interfaceStatus2;
     PacketTable sentPackets;
 
     void reset();
+    ThreadControl & getInterface(int id);
+    InterfaceStatus & getStatus(int id);
 };
 
 // ============================================================================
@@ -172,9 +185,39 @@ inline void SharedStorage::reset()
     sentPackets.clear();
 }
 
+inline ThreadControl & SharedStorage::getInterface(int id)
+{
+    if (id == 1)
+    {
+        return interfaceThread1;
+    }
+    else
+    {
+        return interfaceThread2;
+    }
+}
+
+inline InterfaceStatus & SharedStorage::getStatus(int id)
+{
+    if (id == 1)
+    {
+        return interfaceStatus1;
+    }
+    else
+    {
+        return interfaceStatus2;
+    }
+}
+
 inline timeout::timeout()
     : start(steady_clock::now()),
       duration{5s}
+{
+}
+
+inline timeout::timeout(milliseconds duration)
+    : start(steady_clock::now()),
+      duration{duration}
 {
 }
 
