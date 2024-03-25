@@ -5,8 +5,14 @@
 NetworkThreadHandle::NetworkThreadHandle(SharedStorageHandle storageHandle, interface acceptingInterface)
     : storageHandle_m(storageHandle),
       acceptingInterface_m(acceptingInterface),
-      running_m(false)
+      running_m(false),
+      id_m(0)
 {
+}
+
+string NetworkThreadHandle::interfaceName() const
+{
+    return acceptingInterface_m.name();
 }
 
 NetworkThreadHandle::~NetworkThreadHandle()

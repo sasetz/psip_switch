@@ -25,8 +25,11 @@ public:
     void start(int id);      // non-blocking
     void signalStop(); // doesn't *actually* stop the thread
 
+public:
+    string interfaceName() const;
+
 private:
-    void run(); // blocking!
+    void thread(); // blocking!
 
 private:
     std::thread thread_m;

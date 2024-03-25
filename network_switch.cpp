@@ -29,14 +29,26 @@ void NetworkSwitch::startNetwork(string interface1, string interface2)
         storage_m.reset();
     }
 
-    interface1_m->start();
-    interface2_m->start();
+    interface1_m->start(1);
+    interface2_m->start(2);
 }
 
 void NetworkSwitch::stopNetwork()
 {
     interface1_m->signalStop();
     interface2_m->signalStop();
+}
+
+void NetworkSwitch::clearMac()
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    storage_m.macTable.clear();
+}
+
+void NetworkSwitch::clearStats()
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    storage_m.statisticsTable.clear();
 }
 
 NetworkSwitch::SwitchState NetworkSwitch::state() const
@@ -50,4 +62,16 @@ NetworkSwitch::SwitchState NetworkSwitch::state() const
     }
 
     return SwitchState::Idle;
+}
+
+pair<string, string> NetworkSwitch::interfaces()
+{
+    // TODO: test this
+    if (interface1_m.get() == nullptr || interface2_m.get() == nullptr)
+    {
+        qDebug("Interface names are being requested, but the threads are down");
+        return {"", ""};
+    }
+
+    return {interface1_m->interfaceName(), interface2_m->interfaceName()};
 }
