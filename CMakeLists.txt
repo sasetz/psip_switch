@@ -19,6 +19,12 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        shared_storage.cpp
+        shared_storage.h
+        shared_storage_handle.cpp
+        shared_storage_handle.h
+        network_handle.cpp
+        network_handle.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -45,7 +51,7 @@ else()
 endif()
 
 target_link_libraries(psip_switch PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-target_link_libraries(libtins_prototype PRIVATE tins)
+target_link_libraries(psip_switch PRIVATE tins)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

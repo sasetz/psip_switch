@@ -1,12 +1,24 @@
-#pragma once
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
+#include "switchhandle.h"
 #include <QMainWindow>
+#include <QTimer>
+
+#include <tins/network_interface.h>
+
+#include <QTableWidgetItem>
 
 QT_BEGIN_NAMESPACE
-namespace Ui {
+namespace Ui
+{
 class MainWindow;
 }
 QT_END_NAMESPACE
+
+using network::SwitchHandle;
+using std::vector;
+using Tins::NetworkInterface;
 
 class MainWindow : public QMainWindow
 {
@@ -16,6 +28,23 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void onStartStopButtonClicked();
+    void refreshUi();
+
+    void onClearMacsClicked();
+    void onClearStatsClicked();
+
 private:
-    Ui::MainWindow *ui;
-};
+    void updateInterfaces();
+    void startThread();
+    void stopThread();
+
+private:
+    Ui::MainWindow *ui_m;
+
+    vector<NetworkInterface> interfaces_m;
+    QTimer configurationTimer_m, threadTimer_m;
+    SwitchHandle switchHandle_m;
+}; 
+#endif // MAINWINDOW_H
