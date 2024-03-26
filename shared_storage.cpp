@@ -3,15 +3,18 @@
 
 Packet::Packet(vector<uint8_t> && data)
     : data(std::move(data))
-{}
+{
+}
 
 Packet::Packet(Tins::PDU & pdu)
     : Packet(std::move(pdu.serialize()))
-{}
+{
+}
 
-Packet::Packet(Tins::PDU * pdu)
+Packet::Packet(Tins::PDU *pdu)
     : Packet(std::move(pdu->serialize()))
-{}
+{
+}
 
 bool Packet::operator==(const Packet & other) const
 {
@@ -29,5 +32,38 @@ std::size_t Packet::Hash::operator()(const Packet & packet) const noexcept
     }
 
     return hash;
+}
+
+string protocolToString(Protocol protocol)
+{
+    switch (protocol)
+    {
+    case Protocol::EthernetII:
+        return "EthernetII";
+    case Protocol::ARP:
+        return "ARP";
+    case Protocol::IP:
+        return "IP";
+    case Protocol::TCP:
+        return "TCP";
+    case Protocol::UDP:
+        return "UDP";
+    case Protocol::ICMP:
+        return "ICMP";
+    case Protocol::HTTP:
+        return "HTTP";
+    }
+}
+
+InterfaceEntry & SharedStorage::getInterface(mac_address address)
+{
+    for (auto & interface : interfaces)
+    {
+        if (interface.first.hw_address() == address)
+        {
+            return interface.second;
+        }
+    }
+    throw std::runtime_error("No interface with the following MAC: " + address.to_string());
 }
 

@@ -15,22 +15,32 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(libtins REQUIRED)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
-        shared_storage.cpp
-        shared_storage.h
-        shared_storage_handle.cpp
-        shared_storage_handle.h
-        network_handle.cpp
-        network_handle.h
+    main.cpp
+)
+
+set(TEST_SOURCES
+    test.cpp
+)
+
+set(COMMON_SOURCES
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
+    shared_storage.cpp
+    shared_storage.h
+    shared_storage_handle.cpp
+    shared_storage_handle.h
+    network_handle.cpp
+    network_handle.h
+    network_switch.cpp
+    network_switch.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(psip_switch
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        ${COMMON_SOURCES}
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET psip_switch APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -40,18 +50,27 @@ else()
     if(ANDROID)
         add_library(psip_switch SHARED
             ${PROJECT_SOURCES}
+            ${COMMON_SOURCES}
         )
 # Define properties for Android with Qt 5 after find_package() calls as:
 #    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
         add_executable(psip_switch
             ${PROJECT_SOURCES}
+            ${COMMON_SOURCES}
         )
     endif()
 endif()
 
+add_executable(test_psip_switch
+    ${COMMON_SOURCES}
+    ${TEST_SOURCES}
+)
+
 target_link_libraries(psip_switch PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(psip_switch PRIVATE tins)
+target_link_libraries(test_psip_switch PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(test_psip_switch PRIVATE tins)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

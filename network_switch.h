@@ -17,6 +17,7 @@ public:
     {
         Idle,
         RunningNetwork,
+        StoppingNetwork
     };
 public:
     NetworkSwitch();
@@ -29,6 +30,7 @@ public:
 public:
     void startNetwork(string interface1, string interface2);
     void stopNetwork();
+    void updateMac();
 
 public:
     void clearMac();

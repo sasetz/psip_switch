@@ -23,7 +23,7 @@ public:
     ~NetworkThreadHandle();
 
 public:
-    void start(int id);      // non-blocking
+    void start();      // non-blocking
     void signalStop(); // doesn't *actually* stop the thread
 
 public:
@@ -31,15 +31,14 @@ public:
 
 private:
     void thread(); // blocking!
-    void inputStatistics(Tins::PDU & packet, storage_guard & guard);
-    void outputStatistics(Tins::PDU & packet, storage_guard & guard);
+    void inputStatistics(Tins::PDU & packet, interface net, storage_guard & guard);
+    void outputStatistics(Tins::PDU & packet, interface net, storage_guard & guard);
     void updateMac(mac_address mac, storage_guard & guard);
+    void send(Tins::PDU & packet, interface destination, storage_guard & guard);
+    void broadcast(Tins::PDU & packet, storage_guard & guard);
 
 private:
     std::thread thread_m;
     SharedStorageHandle storageHandle_m;
     interface acceptingInterface_m;
-
-    bool running_m;
-    int id_m;
 };

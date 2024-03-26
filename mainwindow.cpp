@@ -1,14 +1,16 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "network_switch.h"
+#include "shared_storage.h"
 
 #include <QTimer>
+#include <tins/hw_address.h>
 
-using std::get;
-using std::chrono::duration_cast, std::chrono::milliseconds, std::chrono::steady_clock;
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui_m(new Ui::MainWindow), interfaces_m{}, switchHandle_m{}, configurationTimer_m{this},
-      threadTimer_m{this}
+    : QMainWindow(parent), ui_m(new Ui::MainWindow), interfaces_m{}, configurationTimer_m{this},
+      threadTimer_m{this},
+    networkSwitch_m{}
 {
     ui_m->setupUi(this);
 
@@ -30,7 +32,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::onStartStopButtonClicked()
 {
-    if (switchHandle_m.running())
+    if (networkSwitch_m.state() == NetworkSwitch::SwitchState::RunningNetwork)
     {
         stopThread();
     }
@@ -62,14 +64,14 @@ void MainWindow::startThread()
         return;
     }
 
-    switchHandle_m.launch(interfaces_m[if1_index], interfaces_m[if2_index]);
+    networkSwitch_m.startNetwork(interfaces_m[if1_index].name(), interfaces_m[if2_index].name());
     refreshUi();
     threadTimer_m.start(500);
 }
 
 void MainWindow::stopThread()
 {
-    switchHandle_m.stop();
+    networkSwitch_m.stopNetwork();
     refreshUi();
 }
 
@@ -90,18 +92,18 @@ void MainWindow::refreshUi()
     ui_m->interface1->setCurrentIndex(index1);
     ui_m->interface2->setCurrentIndex(index2);
 
-    if (switchHandle_m.running())
+    if (networkSwitch_m.state() == NetworkSwitch::SwitchState::RunningNetwork)
     {
         ui_m->interface1->setEnabled(false);
         ui_m->interface2->setEnabled(false);
         ui_m->start_stop_button->setText("Stop");
         ui_m->start_stop_button->setEnabled(true);
-        auto activeInterfaces = switchHandle_m.interfaces();
+        auto activeInterfaces = networkSwitch_m.interfaces();
         ui_m->status->setText(
             QString("Running on interfaces: %1 -> %2")
-                .arg(std::get<0>(activeInterfaces).name().c_str(), std::get<1>(activeInterfaces).name().c_str()));
+                .arg(activeInterfaces.first.c_str(), activeInterfaces.second.c_str()));
     }
-    else if (switchHandle_m.state() == network::SwitchHandle::State::Idle)
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::Idle)
     {
         ui_m->interface1->setEnabled(true);
         ui_m->interface2->setEnabled(true);
@@ -110,16 +112,16 @@ void MainWindow::refreshUi()
         ui_m->status->setText("Idle");
         threadTimer_m.stop(); // the UI won't be updated until the start button is pressed again
     }
-    else if (switchHandle_m.state() == network::SwitchHandle::State::Stopping)
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::StoppingNetwork)
     {
         ui_m->interface1->setEnabled(false);
         ui_m->interface2->setEnabled(false);
         ui_m->start_stop_button->setText("Stopping...");
         ui_m->start_stop_button->setEnabled(false);
-        auto activeInterfaces = switchHandle_m.interfaces();
+        auto activeInterfaces = networkSwitch_m.interfaces();
         ui_m->status->setText(
             QString("Running on interfaces: %1 -> %2 (finishing...)")
-                .arg(std::get<0>(activeInterfaces).name().c_str(), std::get<1>(activeInterfaces).name().c_str()));
+                .arg(activeInterfaces.first.c_str(), activeInterfaces.second.c_str()));
     }
     else
     {
@@ -130,38 +132,41 @@ void MainWindow::refreshUi()
     ui_m->mac_table->clearContents();
     ui_m->stats_table->clearContents();
 
-    auto data = switchHandle_m.copySharedData();
-    auto macLength = data.macTable.size();
+    auto guard = networkSwitch_m.getStorage().guard();
+    auto macLength = guard.storage.macTable.size();
     ui_m->mac_table->setRowCount(macLength);
 
     int i = 0;
-    for (const auto & entry : data.macTable)
+    for (const auto & entry : guard.storage.macTable)
     {
         auto *item = new QTableWidgetItem(tr("%1").arg(entry.first.to_string().c_str()));
         // item->setText(tr("%1").arg(entry.first.to_string().c_str()));
         ui_m->mac_table->setItem(i, 0, item);
-        item = new QTableWidgetItem(tr("%1").arg(get<0>(entry.second).name().c_str()));
+        item = new QTableWidgetItem(tr("%1").arg(entry.second.interface.name().c_str()));
         // item->setText(tr("%1").arg(get<0>(entry.second).name().c_str()));
         ui_m->mac_table->setItem(i, 1, item);
         item = new QTableWidgetItem(tr("%1ms").arg(
-            duration_cast<milliseconds>(get<1>(entry.second) - steady_clock::now() + network::SwitchHandle::MAC_TIMEOUT)
-                .count()));
+            entry.second.expiration.timeLeft().count())
+                                    );
         // item->setText(tr("%1ms").arg(duration_cast<milliseconds>(get<1>(entry.second) -
         // steady_clock::now()).count()));
         ui_m->mac_table->setItem(i, 2, item);
         i++;
     }
 
-    auto statLength = data.stats.size();
+    auto statLength = guard.storage.statisticsTable.size();
     ui_m->stats_table->setRowCount(statLength);
     int j = 0;
-    for (const auto & entry : data.stats)
+    for (const auto & entry : guard.storage.statisticsTable)
     {
-        ui_m->stats_table->setItem(j, 0, new QTableWidgetItem(tr("%1").arg(entry.interface.name().c_str())));
-        ui_m->stats_table->setItem(j, 1, new QTableWidgetItem(tr("%1").arg(protocolToStr(entry.protocol))));
-        ui_m->stats_table->setItem(j, 2, new QTableWidgetItem(tr("%1").arg(entry.inputPackets)));
-        ui_m->stats_table->setItem(j, 3, new QTableWidgetItem(tr("%1").arg(entry.outputPackets)));
-        j++;
+        for (const auto & net : entry.second.table)
+        {
+            ui_m->stats_table->setItem(j, 0, new QTableWidgetItem(tr("%1").arg(net.first.hw_address().to_string().c_str())));
+            ui_m->stats_table->setItem(j, 1, new QTableWidgetItem(tr("%1").arg(protocolToString(entry.first).c_str())));
+            ui_m->stats_table->setItem(j, 2, new QTableWidgetItem(tr("%1").arg(net.second.input)));
+            ui_m->stats_table->setItem(j, 3, new QTableWidgetItem(tr("%1").arg(net.second.output)));
+            j++;
+        }
     }
 }
 
@@ -176,17 +181,17 @@ void MainWindow::updateInterfaces()
         refreshUi();
     }
 
-    switchHandle_m.updateMacTable();
+    networkSwitch_m.updateMac();
 }
 
 void MainWindow::onClearMacsClicked()
 {
-    switchHandle_m.clearMacTable();
+    networkSwitch_m.clearMac();
     refreshUi();
 }
 
 void MainWindow::onClearStatsClicked()
 {
-    switchHandle_m.clearStatsTable();
+    networkSwitch_m.clearStats();
     refreshUi();
 }

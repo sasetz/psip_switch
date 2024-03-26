@@ -13,6 +13,10 @@ NetworkSwitch::NetworkSwitch()
 {
 }
 
+NetworkSwitch::~NetworkSwitch()
+{
+}
+
 void NetworkSwitch::startNetwork(string interface1, string interface2)
 {
     if (state() != SwitchState::Idle)
@@ -29,8 +33,8 @@ void NetworkSwitch::startNetwork(string interface1, string interface2)
         storage_m.reset();
     }
 
-    interface1_m->start(1);
-    interface2_m->start(2);
+    interface1_m->start();
+    interface2_m->start();
 }
 
 void NetworkSwitch::stopNetwork()
@@ -55,10 +59,36 @@ NetworkSwitch::SwitchState NetworkSwitch::state() const
 {
     lock_guard<mutex> lock(storageMutex_m);
 
-    if (storage_m.interfaceThread1.running && !storage_m.interfaceThread1.finished &&
-        storage_m.interfaceThread2.running && !storage_m.interfaceThread2.finished)
+    bool isRunning = !storage_m.interfaces.empty();
+    for (const auto & interface : storage_m.interfaces)
+    {
+        if (interface.second.control.running != true ||
+        interface.second.control.finished != false)
+        {
+            isRunning = false;
+            break;
+        }
+    }
+
+    if (isRunning)
     {
         return SwitchState::RunningNetwork;
+    }
+
+    bool isStopping = !storage_m.interfaces.empty();
+    for (const auto & interface : storage_m.interfaces)
+    {
+        if (interface.second.control.running != false ||
+        interface.second.control.finished != false)
+        {
+            isStopping = false;
+            break;
+        }
+    }
+
+    if (isStopping)
+    {
+        return SwitchState::StoppingNetwork;
     }
 
     return SwitchState::Idle;
@@ -74,4 +104,20 @@ pair<string, string> NetworkSwitch::interfaces()
     }
 
     return {interface1_m->interfaceName(), interface2_m->interfaceName()};
+}
+
+void NetworkSwitch::updateMac()
+{
+    lock_guard guard(storageMutex_m);
+    for (auto it = storage_m.macTable.begin(); it != storage_m.macTable.end();)
+    {
+        if (it->second.expiration.expired())
+        {
+            it = storage_m.macTable.erase(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
 }

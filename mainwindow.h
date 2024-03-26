@@ -1,7 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "switchhandle.h"
+#include "network_switch.h"
 #include <QMainWindow>
 #include <QTimer>
 
@@ -16,7 +16,6 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
-using network::SwitchHandle;
 using std::vector;
 using Tins::NetworkInterface;
 
@@ -45,6 +44,6 @@ private:
 
     vector<NetworkInterface> interfaces_m;
     QTimer configurationTimer_m, threadTimer_m;
-    SwitchHandle switchHandle_m;
+    NetworkSwitch networkSwitch_m;
 }; 
 #endif // MAINWINDOW_H
