@@ -55,40 +55,38 @@ void NetworkSwitch::clearStats()
     storage_m.statisticsTable.clear();
 }
 
+void NetworkSwitch::resetMac()
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    for (auto & entry : storage_m.macTable)
+    {
+        entry.second.expiration.reset();
+    }
+}
+
+void NetworkSwitch::applyMac(milliseconds newTimeout)
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    storage_m.deviceInfo.defaultMacTimeout = newTimeout;
+}
+
 NetworkSwitch::SwitchState NetworkSwitch::state() const
 {
     lock_guard<mutex> lock(storageMutex_m);
 
-    bool isRunning = !storage_m.interfaces.empty();
     for (const auto & interface : storage_m.interfaces)
     {
-        if (interface.second.control.running != true ||
-        interface.second.control.finished != false)
+        if (interface.second.control.running == false &&
+        interface.second.control.finished == false)
         {
-            isRunning = false;
-            break;
+            return SwitchState::StoppingNetwork;
         }
-    }
 
-    if (isRunning)
-    {
-        return SwitchState::RunningNetwork;
-    }
-
-    bool isStopping = !storage_m.interfaces.empty();
-    for (const auto & interface : storage_m.interfaces)
-    {
-        if (interface.second.control.running != false ||
-        interface.second.control.finished != false)
+        if (interface.second.control.running == true &&
+        interface.second.control.finished == false)
         {
-            isStopping = false;
-            break;
+            return SwitchState::RunningNetwork;
         }
-    }
-
-    if (isStopping)
-    {
-        return SwitchState::StoppingNetwork;
     }
 
     return SwitchState::Idle;
@@ -96,7 +94,6 @@ NetworkSwitch::SwitchState NetworkSwitch::state() const
 
 pair<string, string> NetworkSwitch::interfaces()
 {
-    // TODO: test this
     if (interface1_m.get() == nullptr || interface2_m.get() == nullptr)
     {
         qDebug("Interface names are being requested, but the threads are down");
@@ -121,3 +118,20 @@ void NetworkSwitch::updateMac()
         }
     }
 }
+
+void NetworkSwitch::updatePackets()
+{
+    lock_guard guard(storageMutex_m);
+    for (auto it = storage_m.sentPackets.begin(); it != storage_m.sentPackets.end();)
+    {
+        if (it->expiration.expired())
+        {
+            it = storage_m.sentPackets.erase(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
+}
+

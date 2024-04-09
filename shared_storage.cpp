@@ -1,8 +1,10 @@
 #include "shared_storage.h"
+#include "settings.h"
 #include <cstdint>
 
 Packet::Packet(vector<uint8_t> && data)
-    : data(std::move(data))
+    : data(std::move(data)),
+      expiration(DEFAULT_SENT_PACKET_TIMEOUT)
 {
 }
 
@@ -25,7 +27,7 @@ std::size_t Packet::Hash::operator()(const Packet & packet) const noexcept
 {
     std::size_t hash = packet.data.size();
 
-    for (int i = packet.data.size() > 22 ? 21 : 0; i < packet.data.size(); i++)
+    for (int i = 0; i < packet.data.size(); i++)
     {
         auto byte = packet.data[i];
         hash ^= byte + 73 + (hash >> 1) + (hash << 3);
@@ -66,4 +68,3 @@ InterfaceEntry & SharedStorage::getInterface(mac_address address)
     }
     throw std::runtime_error("No interface with the following MAC: " + address.to_string());
 }
-

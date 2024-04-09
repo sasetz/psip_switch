@@ -60,7 +60,7 @@
         <item>
          <widget class="QLabel" name="status">
           <property name="text">
-           <string>TextLabel</string>
+           <string/>
           </property>
          </widget>
         </item>
@@ -77,6 +77,36 @@
        <widget class="QPushButton" name="clear_stats">
         <property name="text">
          <string>Clear statistics</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Default MAC timeout</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="macTimeout">
+        <property name="minimum">
+         <number>100</number>
+        </property>
+        <property name="maximum">
+         <number>100000</number>
+        </property>
+        <property name="singleStep">
+         <number>0</number>
+        </property>
+        <property name="value">
+         <number>30000</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="macApply">
+        <property name="text">
+         <string>Apply</string>
         </property>
        </widget>
       </item>
@@ -165,27 +195,33 @@
      <x>0</x>
      <y>0</y>
      <width>1135</width>
-     <height>26</height>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuTest_button">
     <property name="title">
-     <string>Test button</string>
+     <string>Actions</string>
     </property>
-    <addaction name="actionAn_option"/>
-    <addaction name="actionA_second_option"/>
+    <addaction name="resetMacTimeoutsMenu"/>
+    <addaction name="clearMacMenu"/>
+    <addaction name="clearStatsMenu"/>
    </widget>
    <addaction name="menuTest_button"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionAn_option">
+  <action name="resetMacTimeoutsMenu">
    <property name="text">
-    <string>An option</string>
+    <string>Reset MAC timeouts</string>
    </property>
   </action>
-  <action name="actionA_second_option">
+  <action name="clearMacMenu">
    <property name="text">
-    <string>A second option</string>
+    <string>Clear MAC table</string>
+   </property>
+  </action>
+  <action name="clearStatsMenu">
+   <property name="text">
+    <string>Clear statistics</string>
    </property>
   </action>
  </widget>

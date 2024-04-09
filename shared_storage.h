@@ -1,5 +1,6 @@
 #pragma once
 
+#include "settings.h"
 #include <chrono>
 #include <cstdint>
 #include <map>
@@ -18,21 +19,6 @@ using std::chrono::time_point, std::chrono::steady_clock, std::chrono::milliseco
 using namespace std::chrono_literals;
 using std::vector, std::map, std::string, std::string_view;
 
-// ============================================================================
-// = Statistics ===============================================================
-// ============================================================================
-
-struct Statistic
-{
-    struct IO
-    {
-        int32_t input;
-        int32_t output;
-    };
-
-    map<interface, IO> table;
-};
-
 enum class Protocol
 {
     EthernetII,
@@ -43,7 +29,34 @@ enum class Protocol
     ICMP,
     HTTP
 };
-using StatisticsTable = map<Protocol, Statistic>;
+
+// One statistic entry
+struct StatisticEntry
+{
+    int32_t input;
+    int32_t output;
+};
+
+struct StatisticKey
+{
+    Protocol protocol;
+    interface target;
+
+    struct StatisticKeyComparator
+    {
+        bool operator()(const StatisticKey & lhs, const StatisticKey & rhs) const
+        {
+            return lhs.value() < rhs.value();
+        }
+    };
+
+    int32_t value() const
+    {
+        return target.id() + static_cast<int>(protocol);
+    }
+};
+
+using StatisticsTable = map<StatisticKey, StatisticEntry, StatisticKey::StatisticKeyComparator>;
 
 string protocolToString(Protocol protocol);
 
@@ -100,9 +113,6 @@ struct DeviceInfo
     DeviceInfo();
     string hostname;
     milliseconds defaultMacTimeout;
-
-    static constexpr milliseconds DEFAULT_TIMEOUT = 30s;
-    static constexpr string_view DEFAULT_HOSTNAME = "Switch";
 };
 
 // ============================================================================
@@ -126,7 +136,15 @@ public:
     bool up;
 };
 
-using InterfaceTable = map<interface, InterfaceEntry>;
+struct NetworkInterfaceComparator
+{
+    bool operator()(const interface & lhs, const interface & rhs) const
+    {
+        return lhs.id() < rhs.id();
+    }
+};
+
+using InterfaceTable = map<interface, InterfaceEntry, NetworkInterfaceComparator>;
 
 // ============================================================================
 // = Hashable packet ==========================================================
@@ -180,7 +198,7 @@ struct SharedStorage
 
 inline DeviceInfo::DeviceInfo()
     : hostname(DEFAULT_HOSTNAME),
-      defaultMacTimeout(DEFAULT_TIMEOUT)
+      defaultMacTimeout(DEFAULT_MAC_TIMEOUT)
 {
 }
 
@@ -201,8 +219,8 @@ inline void SharedStorage::reset()
     macTable.clear();
     statisticsTable.clear();
     sessions.clear();
-    deviceInfo.hostname = DeviceInfo::DEFAULT_HOSTNAME;
-    deviceInfo.defaultMacTimeout = DeviceInfo::DEFAULT_TIMEOUT;
+    deviceInfo.hostname = DEFAULT_HOSTNAME;
+    deviceInfo.defaultMacTimeout = DEFAULT_MAC_TIMEOUT;
     sentPackets.clear();
     interfaces.clear();
 }

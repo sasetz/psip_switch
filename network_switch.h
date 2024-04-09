@@ -31,10 +31,13 @@ public:
     void startNetwork(string interface1, string interface2);
     void stopNetwork();
     void updateMac();
+    void updatePackets();
 
 public:
     void clearMac();
     void clearStats();
+    void resetMac();
+    void applyMac(milliseconds newTimeout);
 
     SharedStorageHandle getStorage();
     pair<string, string> interfaces();

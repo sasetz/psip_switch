@@ -12,8 +12,9 @@ void NetworkThreadHandle::start()
 {
     {
         auto guard = storageHandle_m.guard();
-        guard.storage.interfaces[acceptingInterface_m].control.running = true;
-        guard.storage.interfaces[acceptingInterface_m].up = true;
+        guard.storage.interfaces[interface_m] = {};
+        guard.storage.interfaces[interface_m].control.running = true;
+        guard.storage.interfaces[interface_m].up = true;
     }
 
     // the actual start
@@ -23,7 +24,7 @@ void NetworkThreadHandle::start()
 void NetworkThreadHandle::signalStop()
 {
     auto guard = storageHandle_m.guard();
-    guard.storage.interfaces[acceptingInterface_m].control.running = false;
+    guard.storage.interfaces[interface_m].control.running = false;
 }
 
 // the network thread function itself
@@ -33,7 +34,7 @@ void NetworkThreadHandle::thread()
     config.set_promisc_mode(true);
     config.set_immediate_mode(true);
     config.set_timeout(500);
-    Tins::Sniffer reader(acceptingInterface_m.name(), config);
+    Tins::Sniffer reader(interface_m.name(), config);
     reader.sniff_loop([&](Tins::PDU & packet) {
         qInfo("Received a packet!");
         if (!packet.find_pdu<Tins::EthernetII>())
@@ -41,38 +42,47 @@ void NetworkThreadHandle::thread()
             qInfo("Non-EthernetII packet");
 
             auto guard = storageHandle_m.guard();
-            return guard.storage.interfaces[acceptingInterface_m].control.running;
+            return guard.storage.interfaces[interface_m].control.running;
         }
         auto guard = storageHandle_m.guard();
+        SnifferHelper me(guard, interface_m);
         auto eth = packet.rfind_pdu<Tins::EthernetII>();
 
         // is this interface up?
-        if (!guard.storage.interfaces[acceptingInterface_m].up)
+        if (!me.up())
         {
-            qDebug("The interface %s is down, skipping", acceptingInterface_m.hw_address().to_string().c_str());
-            return guard.storage.interfaces[acceptingInterface_m].control.running;
+            qDebug("The interface %s is down, skipping", interface_m.hw_address().to_string().c_str());
+            return me.running();
         }
 
         // did we send this packet?
         if (guard.storage.sentPackets.count(packet) == 1)
         {
             qDebug("Found a duplicate packet on interface %s, skipping",
-                   acceptingInterface_m.hw_address().to_string().c_str());
-            return guard.storage.interfaces[acceptingInterface_m].control.running;
+                   interface_m.hw_address().to_string().c_str());
+            return me.running();
         }
 
         // record the packet as input
-        inputStatistics(packet, acceptingInterface_m, guard);
+        inputStatistics(packet, interface_m, guard);
+
+        // did our device send this?
+        if (eth.src_addr() == interface_m.hw_address())
+        {
+            qDebug("The packet on interface %s was sent by that interface, skipping",
+                   interface_m.hw_address().to_string().c_str());
+            return me.running();
+        }
 
         // update MAC table
         updateMac(eth.src_addr(), guard);
 
         // did they send this packet to us?
-        if (eth.dst_addr() == acceptingInterface_m.hw_address())
+        if (eth.dst_addr() == interface_m.hw_address())
         {
             qDebug("The packet on interface %s was meant for that interface, skipping",
-                   acceptingInterface_m.hw_address().to_string().c_str());
-            return guard.storage.interfaces[acceptingInterface_m].control.running;
+                   interface_m.hw_address().to_string().c_str());
+            return me.running();
         }
 
         // is the destination on this device?
@@ -82,27 +92,34 @@ void NetworkThreadHandle::thread()
             {
                 qInfo("Switching packet to local device on interface %s", entry.first.hw_address().to_string().c_str());
                 send(packet, entry.first, guard);
-                return guard.storage.interfaces[acceptingInterface_m].control.running;
+                return me.running();
             }
         }
 
         // is destination address known?
-        if (guard.storage.macTable.count(eth.dst_addr()) == 1)
+        if (me.macTable().count(eth.dst_addr()) == 1)
         {
+            // did we get this packet on the same interface that we need to send
+            // it to?
+            if (me.macTable()[eth.dst_addr()].interface == interface_m)
+            {
+                qInfo("The recipient of the packet has already received it, skipping");
+                return me.running();
+            }
             qInfo("Switching packet using MAC entry");
-            send(packet, guard.storage.macTable[eth.dst_addr()].interface, guard);
-            return guard.storage.interfaces[acceptingInterface_m].control.running;
+            send(packet, me.macTable()[eth.dst_addr()].interface, guard);
+            return me.running();
         }
 
         // broadcasting
         broadcast(packet, guard);
 
-        return guard.storage.interfaces[acceptingInterface_m].control.running;
+        return me.running();
     });
 
     auto guard = storageHandle_m.guard();
-    guard.storage.interfaces[acceptingInterface_m].control.finished = true;
-    qInfo("Thread %s is down", acceptingInterface_m.hw_address().to_string().c_str());
+    guard.storage.interfaces[interface_m].control.finished = true;
+    qInfo("Thread %s is down", interface_m.hw_address().to_string().c_str());
 }
 
 void NetworkThreadHandle::send(Tins::PDU & packet, interface destination, storage_guard & guard)
@@ -134,7 +151,7 @@ void NetworkThreadHandle::broadcast(Tins::PDU & packet, storage_guard & guard)
     guard.storage.sentPackets.insert(packet);
     for (const auto & entry : guard.storage.interfaces)
     {
-        if (entry.first == acceptingInterface_m)
+        if (entry.first == interface_m)
         {
             continue;
         }
@@ -148,35 +165,35 @@ void NetworkThreadHandle::inputStatistics(Tins::PDU & packet, interface net, sto
 {
     if (packet.find_pdu<Tins::EthernetII>())
     {
-        guard.storage.statisticsTable[Protocol::EthernetII].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::EthernetII, net}].input++;
     }
     if (packet.find_pdu<Tins::ARP>())
     {
-        guard.storage.statisticsTable[Protocol::ARP].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::ARP, net}].input++;
     }
     if (packet.find_pdu<Tins::IP>())
     {
-        guard.storage.statisticsTable[Protocol::IP].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::IP, net}].input++;
     }
     if (packet.find_pdu<Tins::TCP>())
     {
-        guard.storage.statisticsTable[Protocol::TCP].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::TCP, net}].input++;
     }
     if (packet.find_pdu<Tins::UDP>())
     {
-        guard.storage.statisticsTable[Protocol::UDP].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::UDP, net}].input++;
     }
     if (packet.find_pdu<Tins::ICMP>())
     {
-        guard.storage.statisticsTable[Protocol::ICMP].table[net].input++;
+        guard.storage.statisticsTable[{Protocol::ICMP, net}].input++;
     }
 
     try
     {
         auto tcp = packet.rfind_pdu<Tins::TCP>();
-        if (tcp.sport() == 80 || tcp.dport() == 80)
+        if (tcp.sport() == 80 || tcp.dport() == 80 || tcp.sport() == 443 || tcp.dport() == 443)
         {
-            guard.storage.statisticsTable[Protocol::HTTP].table[net].input++;
+            guard.storage.statisticsTable[{Protocol::HTTP, net}].input++;
         }
     }
     catch (Tins::pdu_not_found & e)
@@ -188,27 +205,27 @@ void NetworkThreadHandle::outputStatistics(Tins::PDU & packet, interface net, st
 {
     if (packet.find_pdu<Tins::EthernetII>())
     {
-        guard.storage.statisticsTable[Protocol::EthernetII].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::EthernetII, net}].output++;
     }
     if (packet.find_pdu<Tins::ARP>())
     {
-        guard.storage.statisticsTable[Protocol::ARP].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::ARP, net}].output++;
     }
     if (packet.find_pdu<Tins::IP>())
     {
-        guard.storage.statisticsTable[Protocol::IP].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::IP, net}].output++;
     }
     if (packet.find_pdu<Tins::TCP>())
     {
-        guard.storage.statisticsTable[Protocol::TCP].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::TCP, net}].output++;
     }
     if (packet.find_pdu<Tins::UDP>())
     {
-        guard.storage.statisticsTable[Protocol::UDP].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::UDP, net}].output++;
     }
     if (packet.find_pdu<Tins::ICMP>())
     {
-        guard.storage.statisticsTable[Protocol::ICMP].table[net].output++;
+        guard.storage.statisticsTable[{Protocol::ICMP, net}].output++;
     }
 
     try
@@ -216,7 +233,7 @@ void NetworkThreadHandle::outputStatistics(Tins::PDU & packet, interface net, st
         auto tcp = packet.rfind_pdu<Tins::TCP>();
         if (tcp.sport() == 80 || tcp.dport() == 80)
         {
-            guard.storage.statisticsTable[Protocol::HTTP].table[net].output++;
+            guard.storage.statisticsTable[{Protocol::HTTP, net}].output++;
         }
     }
     catch (Tins::pdu_not_found & e)
@@ -226,19 +243,19 @@ void NetworkThreadHandle::outputStatistics(Tins::PDU & packet, interface net, st
 
 void NetworkThreadHandle::updateMac(mac_address mac, storage_guard & guard)
 {
-    guard.storage.macTable[mac] = {acceptingInterface_m, guard.storage.deviceInfo.defaultMacTimeout};
+    guard.storage.macTable[mac] = {interface_m, guard.storage.deviceInfo.defaultMacTimeout};
 }
 
 NetworkThreadHandle::NetworkThreadHandle(SharedStorageHandle storageHandle, interface acceptingInterface)
     : storageHandle_m(storageHandle),
-      acceptingInterface_m(acceptingInterface),
+      interface_m(acceptingInterface),
       thread_m{}
 {
 }
 
 string NetworkThreadHandle::interfaceName() const
 {
-    return acceptingInterface_m.name();
+    return interface_m.name();
 }
 
 NetworkThreadHandle::~NetworkThreadHandle()

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared_storage.h"
 #include "shared_storage_handle.h"
 #include <thread>
 #include <tins/hw_address.h>
@@ -30,6 +31,36 @@ public:
     string interfaceName() const;
 
 private:
+    struct SnifferHelper
+    {
+        SnifferHelper(storage_guard & guard, interface & myInt)
+            : guard(guard),
+              myInterface(myInt)
+        {
+        }
+        storage_guard & guard;
+        interface & myInterface;
+        bool & up()
+        {
+            return guard.storage.interfaces[myInterface].up;
+        }
+
+        bool & running()
+        {
+            return guard.storage.interfaces[myInterface].control.running;
+        }
+
+        bool & finished()
+        {
+            return guard.storage.interfaces[myInterface].control.finished;
+        }
+
+        MacTable & macTable()
+        {
+            return guard.storage.macTable;
+        }
+    };
+
     void thread(); // blocking!
     void inputStatistics(Tins::PDU & packet, interface net, storage_guard & guard);
     void outputStatistics(Tins::PDU & packet, interface net, storage_guard & guard);
@@ -40,5 +71,5 @@ private:
 private:
     std::thread thread_m;
     SharedStorageHandle storageHandle_m;
-    interface acceptingInterface_m;
+    interface interface_m;
 };

@@ -31,8 +31,13 @@ private slots:
     void onStartStopButtonClicked();
     void refreshUi();
 
-    void onClearMacsClicked();
-    void onClearStatsClicked();
+    void clearMacTable();
+    void clearStatsTable();
+    void resetMac();
+    void applyMac();
+
+    void updateMac();
+    void updatePackets();
 
 private:
     void updateInterfaces();
@@ -43,7 +48,7 @@ private:
     Ui::MainWindow *ui_m;
 
     vector<NetworkInterface> interfaces_m;
-    QTimer configurationTimer_m, threadTimer_m;
+    QTimer configurationTimer_m, threadTimer_m, macTimer_m, packetsTimer_m;
     NetworkSwitch networkSwitch_m;
 }; 
 #endif // MAINWINDOW_H
