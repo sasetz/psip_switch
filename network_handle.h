@@ -11,7 +11,7 @@ using interface = Tins::NetworkInterface;
 using mac_address = Tins::HWAddress<6>;
 
 // this class contains code to affect the running underlying thread
-// the only method that runs in the separate thread is run()
+// the only method that runs in the separate thread is thread()
 // the other methods remain inside the main thread
 struct NetworkThreadHandle
 {

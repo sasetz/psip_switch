@@ -9,6 +9,7 @@ NetworkSwitch::NetworkSwitch()
       storageMutex_m{},
       interface1_m(nullptr),
       interface2_m(nullptr),
+      restThread_m(nullptr),
       state_m(SwitchState::Idle)
 {
 }
@@ -37,10 +38,26 @@ void NetworkSwitch::startNetwork(string interface1, string interface2)
     interface2_m->start();
 }
 
+void NetworkSwitch::startRest(int16_t port)
+{
+    if (state() != SwitchState::RunningNetwork)
+    {
+        qDebug("Network threads are not running!");
+        return;
+    }
+    restThread_m.reset(new RestThreadHandle(getStorage(), port));
+    restThread_m->start();
+}
+
 void NetworkSwitch::stopNetwork()
 {
     interface1_m->signalStop();
     interface2_m->signalStop();
+}
+
+void NetworkSwitch::stopRest()
+{
+    restThread_m->signalStop();
 }
 
 void NetworkSwitch::clearMac()
@@ -74,19 +91,28 @@ NetworkSwitch::SwitchState NetworkSwitch::state() const
 {
     lock_guard<mutex> lock(storageMutex_m);
 
+    if (storage_m.restThread.running == true)
+    {
+        return SwitchState::RunningRest;
+    }
+
     for (const auto & interface : storage_m.interfaces)
     {
-        if (interface.second.control.running == false &&
-        interface.second.control.finished == false)
+        if (interface.second.control.running == false && interface.second.control.finished == false)
         {
-            return SwitchState::StoppingNetwork;
+            return SwitchState::Stopping;
         }
 
-        if (interface.second.control.running == true &&
-        interface.second.control.finished == false)
+        if (interface.second.control.running == true && interface.second.control.finished == false)
         {
             return SwitchState::RunningNetwork;
         }
+    }
+
+    if (restThread_m.get() != nullptr && storage_m.restThread.running == false &&
+        storage_m.restThread.finished == false)
+    {
+        return SwitchState::Stopping;
     }
 
     return SwitchState::Idle;
@@ -134,4 +160,3 @@ void NetworkSwitch::updatePackets()
         }
     }
 }
-

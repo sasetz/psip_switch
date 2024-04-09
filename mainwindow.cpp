@@ -4,9 +4,9 @@
 #include "settings.h"
 #include "shared_storage.h"
 
+#include <QAction>
 #include <QTimer>
 #include <cstddef>
-#include <QAction>
 #include <qaction.h>
 #include <tins/hw_address.h>
 
@@ -51,15 +51,19 @@ void MainWindow::onStartStopButtonClicked()
 {
     if (networkSwitch_m.state() == NetworkSwitch::SwitchState::RunningNetwork)
     {
-        stopThread();
+        startRestThread();
     }
-    else
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::RunningRest)
     {
-        startThread();
+        stopThreads();
+    }
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::Idle)
+    {
+        startNetworkThread();
     }
 }
 
-void MainWindow::startThread()
+void MainWindow::startNetworkThread()
 {
     qInfo("Attempting to activate the switch...");
     if (ui_m->interface1->currentIndex() == -1 || ui_m->interface2->currentIndex() == -1)
@@ -86,9 +90,17 @@ void MainWindow::startThread()
     threadTimer_m.start(UI_REFRESH_TIMER);
 }
 
-void MainWindow::stopThread()
+void MainWindow::startRestThread()
+{
+    qInfo("Attempting to start REST...");
+    networkSwitch_m.startRest(8888); // TODO: add port field in the UI
+    refreshUi();
+}
+
+void MainWindow::stopThreads()
 {
     networkSwitch_m.stopNetwork();
+    networkSwitch_m.stopRest();
     refreshUi();
 }
 
@@ -113,11 +125,21 @@ void MainWindow::refreshUi()
     {
         ui_m->interface1->setEnabled(false);
         ui_m->interface2->setEnabled(false);
-        ui_m->start_stop_button->setText("Stop");
+        ui_m->start_stop_button->setText("Start REST");
         ui_m->start_stop_button->setEnabled(true);
         auto activeInterfaces = networkSwitch_m.interfaces();
         ui_m->status->setText(QString("Running on interfaces: %1 -> %2")
                                   .arg(activeInterfaces.first.c_str(), activeInterfaces.second.c_str()));
+    }
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::RunningRest)
+    {
+        ui_m->interface1->setEnabled(false);
+        ui_m->interface2->setEnabled(false);
+        ui_m->start_stop_button->setText("Stop");
+        ui_m->start_stop_button->setEnabled(true);
+        auto activeInterfaces = networkSwitch_m.interfaces();
+        ui_m->status->setText(QString("Running on interfaces: %1 -> %2\nREST on port: %3")
+                                  .arg(activeInterfaces.first.c_str(), activeInterfaces.second.c_str(), "8888"));
     }
     else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::Idle)
     {
@@ -128,7 +150,7 @@ void MainWindow::refreshUi()
         ui_m->status->setText("Idle");
         threadTimer_m.stop(); // the UI won't be updated until the start button is pressed again
     }
-    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::StoppingNetwork)
+    else if (networkSwitch_m.state() == NetworkSwitch::SwitchState::Stopping)
     {
         ui_m->interface1->setEnabled(false);
         ui_m->interface2->setEnabled(false);
@@ -167,9 +189,10 @@ void MainWindow::refreshUi()
     int j = 0;
     for (const auto & entry : guard.storage.statisticsTable)
     {
-        ui_m->stats_table->setItem(j, 0,
-                                   new QTableWidgetItem(tr("%1").arg(entry.first.target.hw_address().to_string().c_str())));
-        ui_m->stats_table->setItem(j, 1, new QTableWidgetItem(tr("%1").arg(protocolToString(entry.first.protocol).c_str())));
+        ui_m->stats_table->setItem(
+            j, 0, new QTableWidgetItem(tr("%1").arg(entry.first.target.hw_address().to_string().c_str())));
+        ui_m->stats_table->setItem(j, 1,
+                                   new QTableWidgetItem(tr("%1").arg(protocolToString(entry.first.protocol).c_str())));
         ui_m->stats_table->setItem(j, 2, new QTableWidgetItem(tr("%1").arg(entry.second.input)));
         ui_m->stats_table->setItem(j, 3, new QTableWidgetItem(tr("%1").arg(entry.second.output)));
         j++;

@@ -41,8 +41,9 @@ private slots:
 
 private:
     void updateInterfaces();
-    void startThread();
-    void stopThread();
+    void startNetworkThread();
+    void startRestThread();
+    void stopThreads();
 
 private:
     Ui::MainWindow *ui_m;

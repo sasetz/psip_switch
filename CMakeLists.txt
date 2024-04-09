@@ -13,6 +13,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(libtins REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Boost REQUIRED context)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -34,6 +36,8 @@ set(COMMON_SOURCES
     network_handle.h
     network_switch.cpp
     network_switch.h
+    rest_handle.cpp
+    rest_handle.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -62,15 +66,31 @@ else()
     endif()
 endif()
 
+add_custom_target(
+    symbols_generation
+    COMMAND li_symbol_generator ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_executable(test_psip_switch
     ${COMMON_SOURCES}
     ${TEST_SOURCES}
 )
 
-target_link_libraries(psip_switch PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-target_link_libraries(psip_switch PRIVATE tins)
-target_link_libraries(test_psip_switch PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-target_link_libraries(test_psip_switch PRIVATE tins)
+add_dependencies(psip_switch symbols_generation)
+add_dependencies(test_psip_switch symbols_generation)
+
+set(LIBS
+    Qt${QT_VERSION_MAJOR}::Widgets
+    tins
+    ${OpenSSL_LIBRARIES}
+    ${Boost_LIBRARIES}
+)
+set(INSTALLED_LIBS
+)
+
+target_link_libraries(psip_switch PRIVATE ${LIBS})
+target_link_libraries(psip_switch PRIVATE ${INSTALLED_LIBS})
+target_link_libraries(test_psip_switch PRIVATE ${LIBS})
+target_link_libraries(test_psip_switch PRIVATE ${INSTALLED_LIBS})
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

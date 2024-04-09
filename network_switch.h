@@ -1,6 +1,7 @@
 #pragma once
 
 #include "network_handle.h"
+#include "rest_handle.h"
 #include "shared_storage.h"
 #include "shared_storage_handle.h"
 #include <memory>
@@ -17,7 +18,8 @@ public:
     {
         Idle,
         RunningNetwork,
-        StoppingNetwork
+        RunningRest,
+        Stopping
     };
 public:
     NetworkSwitch();
@@ -29,7 +31,9 @@ public:
 
 public:
     void startNetwork(string interface1, string interface2);
+    void startRest(int16_t port);
     void stopNetwork();
+    void stopRest();
     void updateMac();
     void updatePackets();
 
@@ -47,6 +51,7 @@ private:
     SharedStorage storage_m;
     mutable mutex storageMutex_m;
     unique_ptr<NetworkThreadHandle> interface1_m, interface2_m;
+    unique_ptr<RestThreadHandle> restThread_m;
 
     SwitchState state_m;
 };
