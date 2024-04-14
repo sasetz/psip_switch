@@ -21,6 +21,14 @@ public:
         RunningRest,
         Stopping
     };
+
+    struct InterfaceData
+    {
+        string name, identificator;
+        int32_t id;
+        bool up;
+        interface networkInterface;
+    };
 public:
     NetworkSwitch();
     NetworkSwitch(NetworkSwitch &&) = delete;
@@ -36,15 +44,20 @@ public:
     void stopRest();
     void updateMac();
     void updatePackets();
+    void updateSessions();
+
+    void setMacTimeout(int32_t newTimeout);
 
 public:
     void clearMac();
     void clearStats();
+    void clearStats(interface requiredInterface);
+    void clearSessions();
     void resetMac();
     void applyMac(milliseconds newTimeout);
 
     SharedStorageHandle getStorage();
-    pair<string, string> interfaces();
+    pair<InterfaceData, InterfaceData> interfaces();
     SwitchState state() const;
 
 private:

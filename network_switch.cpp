@@ -1,8 +1,11 @@
 
 #include "network_switch.h"
 #include "network_handle.h"
+#include "shared_storage.h"
 #include <qlogging.h>
 #include <tins/network_interface.h>
+
+using std::chrono::duration_cast, std::chrono::seconds;
 
 NetworkSwitch::NetworkSwitch()
     : storage_m{},
@@ -57,7 +60,10 @@ void NetworkSwitch::stopNetwork()
 
 void NetworkSwitch::stopRest()
 {
-    restThread_m->signalStop();
+    if (restThread_m)
+    {
+        restThread_m->signalStop();
+    }
 }
 
 void NetworkSwitch::clearMac()
@@ -70,6 +76,27 @@ void NetworkSwitch::clearStats()
 {
     lock_guard<mutex> lock(storageMutex_m);
     storage_m.statisticsTable.clear();
+}
+
+void NetworkSwitch::clearStats(interface requiredInterface)
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    for (auto it = storage_m.statisticsTable.begin(); it != storage_m.statisticsTable.end();)
+    {
+        if (it->first.target != requiredInterface)
+        {
+            it++;
+            continue;
+        }
+
+        it = storage_m.statisticsTable.erase(it);
+    }
+}
+
+void NetworkSwitch::clearSessions()
+{
+    lock_guard<mutex> lock(storageMutex_m);
+    storage_m.sessions.clear();
 }
 
 void NetworkSwitch::resetMac()
@@ -118,15 +145,31 @@ NetworkSwitch::SwitchState NetworkSwitch::state() const
     return SwitchState::Idle;
 }
 
-pair<string, string> NetworkSwitch::interfaces()
+pair<NetworkSwitch::InterfaceData, NetworkSwitch::InterfaceData> NetworkSwitch::interfaces()
 {
     if (interface1_m.get() == nullptr || interface2_m.get() == nullptr)
     {
         qDebug("Interface names are being requested, but the threads are down");
-        return {"", ""};
+        return {{}, {}};
     }
+    lock_guard<mutex> lock(storageMutex_m);
 
-    return {interface1_m->interfaceName(), interface2_m->interfaceName()};
+    return {
+        {
+            storage_m.interfaces[interface1_m->getInterface()].name,
+            interface1_m->interfaceName(),
+            interface1_m->id(),
+            storage_m.interfaces[interface1_m->getInterface()].up,
+            interface1_m->getInterface(),
+        },
+        {
+            storage_m.interfaces[interface2_m->getInterface()].name,
+            interface2_m->interfaceName(),
+            interface2_m->id(),
+            storage_m.interfaces[interface2_m->getInterface()].up,
+            interface2_m->getInterface(),
+        },
+    };
 }
 
 void NetworkSwitch::updateMac()
@@ -159,4 +202,28 @@ void NetworkSwitch::updatePackets()
             it++;
         }
     }
+}
+
+void NetworkSwitch::updateSessions()
+{
+    lock_guard guard(storageMutex_m);
+    for (auto it = storage_m.sessions.begin(); it != storage_m.sessions.end();)
+    {
+        if (it->expiration.expired())
+        {
+            it = storage_m.sessions.erase(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
+}
+
+void NetworkSwitch::setMacTimeout(int32_t newTimeout)
+{
+    lock_guard guard(storageMutex_m);
+    storage_m.deviceInfo.defaultMacTimeout = duration_cast<milliseconds>(
+        seconds{newTimeout}
+    );
 }

@@ -38,6 +38,15 @@ set(COMMON_SOURCES
     network_switch.h
     rest_handle.cpp
     rest_handle.h
+    infotable.h
+    infotable.cpp
+    infotable.ui
+    statisticsmodel.h
+    statisticsmodel.cpp
+    macmodel.h
+    macmodel.cpp
+    sessionsmodel.h
+    sessionsmodel.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

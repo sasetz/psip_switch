@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shared_storage_handle.h"
+#include <random>
 #include <thread>
 #include <tins/hw_address.h>
 #include <tins/network_interface.h>
@@ -8,6 +9,7 @@
 
 using interface = Tins::NetworkInterface;
 using mac_address = Tins::HWAddress<6>;
+using std::unique_ptr;
 
 // this class contains code to affect the running underlying thread
 // the only method that runs in the separate thread is thread()
@@ -31,6 +33,13 @@ public:
 
 private:
     void thread(); // blocking!
+    string encodeJsonObject(map<string, string> data) const;
+    string encodeJsonList(vector<string> data) const;
+    string encodeJson(int data) const;
+    string encodeJson(long data) const;
+    string encodeJson(string data) const;
+    string encodeJson(const char * data) const;
+    string encodeJson(bool data) const;
 
 private:
     std::thread thread_m;

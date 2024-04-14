@@ -8,6 +8,11 @@ struct storage_guard
 {
     std::lock_guard<std::mutex> lock;
     SharedStorage & storage;
+
+    SharedStorage * operator->()
+    {
+        return &storage;
+    }
 };
 
 // a copyable handle for accessing the shared storage

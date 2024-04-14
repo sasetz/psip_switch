@@ -29,6 +29,8 @@ public:
 
 public:
     string interfaceName() const;
+    interface getInterface() const;
+    int32_t id() const;
 
 private:
     struct SnifferHelper

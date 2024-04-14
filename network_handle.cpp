@@ -74,6 +74,20 @@ void NetworkThreadHandle::thread()
             return me.running();
         }
 
+        if (eth.dst_addr()[0] % 2 != 0)
+        {
+            qDebug("Detected a multicast, sending it as broadcast");
+            broadcast(packet, guard);
+            return me.running();
+        }
+
+        if (eth.dst_addr().is_broadcast())
+        {
+            qDebug("Detected a broadcast address");
+            broadcast(packet, guard);
+            return me.running();
+        }
+
         // update MAC table
         updateMac(eth.src_addr(), guard);
 
@@ -155,7 +169,8 @@ void NetworkThreadHandle::broadcast(Tins::PDU & packet, storage_guard & guard)
         {
             continue;
         }
-        qInfo("Broadcasting the packet to interface %s", entry.first.hw_address().to_string().c_str());
+        auto eth = packet.rfind_pdu<Tins::EthernetII>();
+        qInfo("Broadcasting the packet (src: %s, dst: %s) to interface %s", eth.src_addr().to_string().c_str(), eth.dst_addr().to_string().c_str(), entry.first.hw_address().to_string().c_str());
         outputStatistics(packet, entry.first, guard);
         sender.send(packet, entry.first);
     }
@@ -256,6 +271,16 @@ NetworkThreadHandle::NetworkThreadHandle(SharedStorageHandle storageHandle, inte
 string NetworkThreadHandle::interfaceName() const
 {
     return interface_m.name();
+}
+
+interface NetworkThreadHandle::getInterface() const
+{
+    return interface_m;
+}
+
+int32_t NetworkThreadHandle::id() const
+{
+    return interface_m.id();
 }
 
 NetworkThreadHandle::~NetworkThreadHandle()

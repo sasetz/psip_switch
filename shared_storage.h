@@ -12,7 +12,7 @@
 
 using mac_address = Tins::HWAddress<6>;
 using interface = Tins::NetworkInterface;
-using session_token = char[32];
+using session_token = char[TOKEN_LENGTH + 1];
 
 using std::chrono::duration_cast;
 using std::chrono::time_point, std::chrono::steady_clock, std::chrono::milliseconds;
@@ -82,6 +82,7 @@ public:
 
 struct Session
 {
+    Session();
     session_token token;
     timeout expiration;
 
@@ -134,6 +135,7 @@ struct InterfaceEntry
 public:
     ThreadControl control;
     bool up;
+    string name;
 };
 
 struct NetworkInterfaceComparator

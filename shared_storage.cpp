@@ -1,6 +1,7 @@
 #include "shared_storage.h"
 #include "settings.h"
 #include <cstdint>
+#include <random>
 
 Packet::Packet(vector<uint8_t> && data)
     : data(std::move(data)),
@@ -67,4 +68,35 @@ InterfaceEntry & SharedStorage::getInterface(mac_address address)
         }
     }
     throw std::runtime_error("No interface with the following MAC: " + address.to_string());
+}
+
+Session::Session()
+    : expiration(DEFAULT_SESSION_TIMEOUT),
+      token()
+{
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    std::uniform_int_distribution<std::mt19937::result_type> distribution(0, 64);
+
+    for (int i = 0; i < TOKEN_LENGTH; i++)
+    {
+        auto result = distribution(rng);
+        if (result < 10)
+        {
+            this->token[i] = result + '0';
+        }
+        else if (result < 36)
+        {
+            this->token[i] = result - 10 + 'a';
+        }
+        else if (result < 62)
+        {
+            this->token[i] = result - 36 + 'A';
+        }
+        else
+        {
+            this->token[i] = result % 2 == 0 ? '-' : '_';
+        }
+    }
+    this->token[TOKEN_LENGTH] = '\0';
 }
