@@ -74,13 +74,15 @@ void NetworkThreadHandle::thread()
             return me.running();
         }
 
-        if (eth.dst_addr()[0] % 2 != 0)
+        // is this is a multicast?
+        if (eth.dst_addr().is_multicast())
         {
             qDebug("Detected a multicast, sending it as broadcast");
             broadcast(packet, guard);
             return me.running();
         }
 
+        // is this is a broadcast?
         if (eth.dst_addr().is_broadcast())
         {
             qDebug("Detected a broadcast address");
@@ -139,7 +141,6 @@ void NetworkThreadHandle::thread()
 void NetworkThreadHandle::send(Tins::PDU & packet, interface destination, storage_guard & guard)
 {
     Tins::PacketSender sender;
-    outputStatistics(packet, destination, guard);
     guard.storage.sentPackets.insert(packet);
     if (packet.size() > 1500)
     {
@@ -152,10 +153,19 @@ void NetworkThreadHandle::send(Tins::PDU & packet, interface destination, storag
             return;
         }
     }
+
     if (packet.rfind_pdu<Tins::EthernetII>().dst_addr().is_broadcast())
     {
         qDebug("Sending a broadcast packet!");
     }
+
+    if (!guard->interfaces[destination].up)
+    {
+        qDebug("The interface is down, cannot send anything through it.");
+        return;
+    }
+
+    outputStatistics(packet, destination, guard);
     sender.send(packet, destination);
 }
 
@@ -258,6 +268,10 @@ void NetworkThreadHandle::outputStatistics(Tins::PDU & packet, interface net, st
 
 void NetworkThreadHandle::updateMac(mac_address mac, storage_guard & guard)
 {
+    if (mac.is_broadcast() || mac.is_multicast())
+    {
+        return;
+    }
     guard.storage.macTable[mac] = {interface_m, guard.storage.deviceInfo.defaultMacTimeout};
 }
 

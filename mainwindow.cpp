@@ -184,7 +184,7 @@ void MainWindow::refreshUi()
         ui_m->start_stop_button->setEnabled(true);
         ui_m->restStartStop->setEnabled(true);
         ui_m->restStartStop->setText("Stop REST");
-        ui_m->port->setEnabled(true);
+        ui_m->port->setEnabled(false);
         auto activeInterfaces = networkSwitch_m.interfaces();
         ui_m->status->setText(QString("Status: Running on interfaces: %1 <-> %2\nREST on port: %3")
                                   .arg(activeInterfaces.first.identificator.c_str(), activeInterfaces.second.identificator.c_str(), "8888"));
@@ -232,39 +232,6 @@ void MainWindow::refreshUi()
     {
         qDebug("An unknown UI state detected!");
     }
-
-    /* ui_m->mac_table->clearContents(); */
-    /* ui_m->stats_table->clearContents(); */
-    /**/
-    /* auto guard = networkSwitch_m.getStorage().guard(); */
-    /* auto macLength = guard.storage.macTable.size(); */
-    /* ui_m->mac_table->setRowCount(macLength); */
-    /**/
-    /* int i = 0; */
-    /* for (const auto & entry : guard.storage.macTable) */
-    /* { */
-    /*     auto *item = new QTableWidgetItem(tr("%1").arg(entry.first.to_string().c_str())); */
-    /*     ui_m->mac_table->setItem(i, 0, item); */
-    /*     item = new QTableWidgetItem(tr("%1").arg(entry.second.interface.name().c_str())); */
-    /*     ui_m->mac_table->setItem(i, 1, item); */
-    /*     item = new QTableWidgetItem(tr("%1ms").arg(entry.second.expiration.timeLeft().count())); */
-    /*     ui_m->mac_table->setItem(i, 2, item); */
-    /*     i++; */
-    /* } */
-    /**/
-    /* auto statLength = guard.storage.statisticsTable.size(); */
-    /* ui_m->stats_table->setRowCount(statLength); */
-    /* int j = 0; */
-    /* for (const auto & entry : guard.storage.statisticsTable) */
-    /* { */
-    /*     ui_m->stats_table->setItem( */
-    /*         j, 0, new QTableWidgetItem(tr("%1").arg(entry.first.target.hw_address().to_string().c_str()))); */
-    /*     ui_m->stats_table->setItem(j, 1, */
-    /*                                new QTableWidgetItem(tr("%1").arg(protocolToString(entry.first.protocol).c_str()))); */
-    /*     ui_m->stats_table->setItem(j, 2, new QTableWidgetItem(tr("%1").arg(entry.second.input))); */
-    /*     ui_m->stats_table->setItem(j, 3, new QTableWidgetItem(tr("%1").arg(entry.second.output))); */
-    /*     j++; */
-    /* } */
 }
 
 void MainWindow::updateMac()

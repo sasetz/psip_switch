@@ -6,8 +6,8 @@ using std::chrono::milliseconds;
 using namespace std::chrono_literals;
 
 static constexpr milliseconds DEFAULT_MAC_TIMEOUT = 30'000ms;
-static constexpr milliseconds DEFAULT_SENT_PACKET_TIMEOUT = 300s;
-static constexpr milliseconds DEFAULT_SESSION_TIMEOUT = 30'000ms;
+static constexpr milliseconds DEFAULT_SENT_PACKET_TIMEOUT = 30'000s;
+static constexpr milliseconds DEFAULT_SESSION_TIMEOUT = 300s;
 static constexpr std::string_view DEFAULT_HOSTNAME = "Switch";
 
 static constexpr milliseconds MAC_UPDATE_TIMER = 200ms;
